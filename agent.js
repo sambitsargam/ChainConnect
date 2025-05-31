@@ -11,6 +11,8 @@ import {
     PrivateKeyVariants,
 } from "@aptos-labs/ts-sdk";
 import { AgentRuntime, LocalSigner, createAptosTools } from "move-agent-kit";
+import dotenv from "dotenv";
+dotenv.config();
 
 const aptosConfig = new AptosConfig({ network: Network.MAINNET });
 const aptos = new Aptos(aptosConfig);
@@ -20,7 +22,7 @@ const memory = new MemorySaver();
 const llm = new ChatAnthropic({
     temperature: 0.7,
     model: "claude-3-5-sonnet-latest",
-    apiKey: "a4^KV_EaTf4MW#ZdvgGKX#HUD^3IFEAOV_kzpIE^3BQGA8pDnrkT7JcIy#HNlLGi",
+    apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
 export async function createAgent() {
@@ -31,7 +33,7 @@ export async function createAgent() {
     const account = await aptos.deriveAccountFromPrivateKey({ privateKey });
     const signer = new LocalSigner(account, Network.MAINNET);
     const aptosAgent = new AgentRuntime(signer, aptos, {
-        PANORA_API_KEY: process.env.PANORA_API_KEY,
+        PANORA_API_KEY: "a4^KV_EaTf4MW#ZdvgGKX#HUD^3IFEAOV_kzpIE^3BQGA8pDnrkT7JcIy#HNlLGi",
     });
 
     const tools = createAptosTools(aptosAgent);
@@ -56,8 +58,16 @@ export async function createAgent() {
 
 export async function runAgent(userInput) {
     const agent = await createAgent();
-    const result = await agent.invoke({
-        messages: [new HumanMessage(userInput)],
-    });
+   const result = await agent.invoke(
+    {
+      messages: [{ role: "user", content: userInput }],
+    },
+    {
+      version: "v2",
+      configurable: {
+        thread_id: `user-${Date.now()}`, // 🆕 required field
+      },
+    }
+  );
     return result.messages.at(-1)?.content || "Sorry, I couldn't understand that.";
 }
