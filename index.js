@@ -3,7 +3,7 @@ import bodyParser from "body-parser";
 import dotenv from "dotenv";
 import { runAgent } from "./agent.js";
 import twilio from "twilio";
-const { MessagingResponse } = twilio;
+const MessagingResponse = twilio.twiml.MessagingResponse;
 
 
 dotenv.config();
