@@ -1,8 +1,10 @@
 import express from "express";
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
-import { MessagingResponse } from "twilio";
 import { runAgent } from "./agent.js";
+import twilio from "twilio";
+const { MessagingResponse } = twilio;
+
 
 dotenv.config();
 

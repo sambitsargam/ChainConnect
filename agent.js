@@ -20,7 +20,7 @@ const memory = new MemorySaver();
 const llm = new ChatAnthropic({
     temperature: 0.7,
     model: "claude-3-5-sonnet-latest",
-    apiKey: process.env.ANTHROPIC_API_KEY,
+    apiKey: "a4^KV_EaTf4MW#ZdvgGKX#HUD^3IFEAOV_kzpIE^3BQGA8pDnrkT7JcIy#HNlLGi",
 });
 
 export async function createAgent() {
