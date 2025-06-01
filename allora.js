@@ -3,41 +3,63 @@ import express from "express";
 import dotenv from "dotenv";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
+
+import { http, createWalletClient } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { mainnet } from "viem/chains";
+
+import { getOnChainTools } from "@goat-sdk/adapter-vercel-ai";
 import { allora } from "@goat-sdk/plugin-allora";
+import { viem as viemWalletAdapter } from "@goat-sdk/wallet-viem";
 
 dotenv.config();
 
 const app = express();
 app.use(express.json());
 
-// 1. Instantiate the Allora plugin with your API key
-//    (make sure ALLORA_API_KEY is defined in your environment)
+// 1) Instantiate the Allora plugin
 const alloraPlugin = allora({
-  apiKey: process.env.ALLORA_API_KEY, 
+  apiKey: process.env.ALLORA_API_KEY,
 });
 
-// 2. A simple POST /chat endpoint that takes { prompt: string } in the body
-//    and runs generateText with just the Allora plugin as a “tool”.
+// 2) Create a raw Viem wallet client, now targeting Ethereum mainnet
+const rawAccount = privateKeyToAccount(process.env.WALLET_PRIVATE_KEY || "");
+const rawViemClient = createWalletClient({
+  account: rawAccount,
+  transport: http(process.env.RPC_PROVIDER_URL),
+  chain: mainnet,            // ← use mainnet here
+});
+
+// 3) Wrap the raw Viem client in the Goat‐SDK “viem” adapter
+const walletAdapter = viemWalletAdapter(rawViemClient);
+
+let tools;
+(async () => {
+  // 4) Pass the wrapped adapter (not the raw client) to getOnChainTools
+  tools = await getOnChainTools({
+    wallet: walletAdapter,
+    plugins: [alloraPlugin],
+  });
+})();
+
 app.post("/chat", async (req, res) => {
   try {
     const { prompt } = req.body;
-    if (typeof prompt !== "string" || prompt.trim().length === 0) {
-      return res.status(400).json({ error: "Body must include a nonempty `prompt` field." });
+    if (!prompt || typeof prompt !== "string") {
+      return res.status(400).json({ error: "`prompt` must be a non‐empty string." });
     }
 
-    // 3. Call generateText with GPT-4o-Mini (or another model), passing only Allora as a tool.
+    // 5) Now `tools` contains valid Tool objects (each with its Zod schema)
     const result = await generateText({
       model: openai("gpt-4o-mini"),
-      tools: [alloraPlugin],
-      prompt,
-      maxSteps: 5, // adjust as needed
-      onStepFinish: (event) => {
-        // (optional) log intermediate tool outputs
-        console.log("Tool results this step:", event.toolResults);
+      tools: tools,
+      prompt: prompt,
+      maxSteps: 5,
+      onStepFinish: (evt) => {
+        console.log("Tool outputs:", evt.toolResults);
       },
     });
 
-    // 4. Send back the final text to the client
     return res.json({ text: result.text });
   } catch (err) {
     console.error(err);
@@ -45,8 +67,7 @@ app.post("/chat", async (req, res) => {
   }
 });
 
-// 5. Start the server on port 3000 (or adjust as needed)
-const PORT = process.env.PORT || 3000;
+const PORT = 3004;
 app.listen(PORT, () => {
-  console.log(`🚀 Server listening on http://localhost:${PORT}`);
+  console.log(`Listening on http://localhost:${PORT}`);
 });
